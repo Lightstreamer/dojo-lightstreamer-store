@@ -1,0 +1,19 @@
+{
+ "name": "lightstreamer",
+ "description": "Interface to Lightstreamer",
+ "licenses": [
+    {
+        "type": "AFLv2.1",
+        "url": "http://trac.dojotoolkit.org/browser/dojo/trunk/LICENSE#L43"
+    },
+    {
+        "type": "BSD",
+        "url": "http://trac.dojotoolkit.org/browser/dojo/trunk/LICENSE#L13"
+    }
+ ],
+ "mappings":{
+   "dojo": "http://github.com/dojo/dojo/zipball/master"
+ },
+ "keywords": ["Lightstreamer","Comet","Streaming","Data Push"],
+ "homepage": "http://www.lightstreamer.com/"
+}
