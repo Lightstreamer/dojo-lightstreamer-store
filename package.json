@@ -1,6 +1,7 @@
 {
- "name": "lightstreamer",
- "description": "Interface to Lightstreamer",
+ "name": "lightstreamer-store",
+ "version": "0.1.0",
+ "description": "Lightstreamer backed implementation of dojo/store",
  "licenses": [
     {
         "type": "AFLv2.1",
@@ -11,9 +12,19 @@
         "url": "http://trac.dojotoolkit.org/browser/dojo/trunk/LICENSE#L13"
     }
  ],
- "mappings":{
-   "dojo": "http://github.com/dojo/dojo/zipball/master"
+ "repository": {
+    "type":"git",
+    "url":"http://github.com/Weswit/DojoLightstreamer"
  },
- "keywords": ["Lightstreamer","Comet","Streaming","Data Push"],
+ "dependencies": {
+    "dojo": ">=1.7.2"
+ },
+ "directories": {
+    "lib": "./lib"
+ },
+ "main": "./lib/LightstreamerStore.js", 
+ "icon": "http://www.lightstreamer.com/img/lsdojostore_icon.png",
+ "bugs": "http://forums.lightstreamer.com/forumdisplay.php?19-Dojo", 
+ "keywords": ["Lightstreamer","Comet","Streaming","Data Push","WebSocket"],
  "homepage": "http://www.lightstreamer.com/"
 }
