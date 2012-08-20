@@ -19,10 +19,7 @@
  "dependencies": {
     "dojo": ">=1.7.2"
  },
- "directories": {
-    "lib": "./lib"
- },
- "main": "./lib/LightstreamerStore.js", 
+ "main": "./LightstreamerStore.js", 
  "icon": "http://www.lightstreamer.com/img/lsdojostore_icon.png",
  "bugs": "http://forums.lightstreamer.com/forumdisplay.php?19-Dojo", 
  "keywords": ["Lightstreamer","Comet","Streaming","Data Push","WebSocket"],
