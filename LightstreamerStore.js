@@ -1,5 +1,4 @@
-//>>built
-define( "dojox/store/LightstreamerStore", [
+define([
   "dojo/_base/lang",
   "dojo/_base/array",
   "dojo/_base/declare",
