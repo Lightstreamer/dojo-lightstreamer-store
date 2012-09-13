@@ -1,219 +1,231 @@
 define([
-  "dojo/_base/lang",
-  "dojo/_base/array",
   "dojo/_base/declare",
-  "dojo/_base/Deferred",
-  "dojo/store/util/QueryResults","Lightstreamer/Subscription"
-], function(lang,array,declare,Deferred,QueryResults,Subscription){
-  dojo.getObject("store", true, dojox);
+  "dojo/store/util/QueryResults",
+  "dojo/store/util/SimpleQueryEngine",
+  "dojox/collections/ArrayList",
+  "dojox/collections/Dictionary",
+  "Lightstreamer/Subscription"
+], function(declare,QueryResults,SimpleQueryEngine,ArrayList,Dictionary,Subscription){
 
   // NOTE: The Lightstreamer JavaScript client library MUST be available in your lib folder
   // and MUST be included in your html file before this module can be used. 
   // Also, the included Lightstreamer JS Client MUST be in its "namespaced AMD" form.
 
-  var nextId = 0;
-
   var _ITEM_IS_KEY = "ITEM_IS_KEY";
   var _UPDATE_IS_KEY = "UPDATE_IS_KEY";
   var _KEY_IS_KEY = "KEY_IS_KEY";
 
-  function translate(id, updateInfo, schema, o){
+  function translate(key, updateInfo, o){
     //  private function to convert the returned object from an update to a JSON-like object.
     o = o || {};
     updateInfo.forEachChangedField(function (fieldName,fieldPos,value) {
       o[fieldName] = value;
     });
     
-    if(!("id" in o)){ o["id"] = id; };
+    if(!("id" in o)){ o["id"] = key; };
     
     return o;
   };
+  
+  
+   
+  var LightstreamerStore = declare(null, {
+  
 
-  var LightstreamerStore = declare("dojox.store.LightstreamerStore", null, {
-    _index: {},  //  a cache for data objects returned
-
-    //  client: (Lightstreamer)LightstreamerClient
-    //    The main connection created by the typical Lightstreamer JavaScript Client
-    client: null,
-    
-    //  itemsList: String[]
-    //    The list of items to be returned from the Lightstreamer Server.
-    itemsList: [],
-    
-    //  fieldsList: String[]
-    //    The list of fields for each item you wish to get back from Lightstreamer
-    fieldsList: [],
-    
-    listeners: {},
-    
-    listnsCount: 0,
-    
-    kind: null,
-    _commandKeys: {},
-
-    constructor: function(client, itemsList, fieldsList, dataAdapter){
+    constructor: function(client, options){
       //  summary:
       //    The constructor for the LightstreamerStore.
       //  client: LightstreamerClient
       //    An instance of LightstreamerClient connected with Lightstreamer server.
-      //  itemsList: String[]
-      //    An array of the item names you wish to get back from Lightstreamer.
-      //  fieldsList: String[]
-      //    The list of fields for each item you wish to get back from Lightstreamer.
-      //  dataAdapter: String
-      //    This is the data adapter to connect to (defined with the Lightstreamer server)
+      //  options: Object
+      //    options: Object
+      //    Subscription configuration options. TODO list options here
       
+      this.queryEngine = SimpleQueryEngine;
+      this.data = new Dictionary(); //  a cache for data objects returned
       this.client = client;
-      
-      this.itemsList = itemsList;
-      this.fieldsList = fieldsList;
-      
-      this.dataAdapter = dataAdapter || "DEFAULT";
-    },
-
-    query: function(query, options){
-      //  summary:
-      //    Start receiving streams from the Lightstreamer server.
-      //
-      //  description:
-      //    The main method of the LightstreamerStore, query opens up a data stream
-      //    from a Lightstreamer server (based on the LightstreamerClient definition used in the
-      //    constructor) and sets up a way to observe the returned results from said
-      //    stream.  It is based on Lightstreamer's Subscription object, and by
-      //    default will run the return from the Lightstreamer server through a 
-      //    private "translate" function, which takes the updateInfo object normally
-      //    returned by Lightstreamer's JavaScript client and converts it into a straight
-      //    JSON-like object that can be used for data consumption.
-      //
-      //  query: String
-      //    The name of the mode to use for the resulting stream. (RAW, MERGE, COMMAND or DISTINCT)
-      //    
-      //  options: LightstreamerStore.__QueryOptionsArgs
-      //    Additional options to consume. See http://www.lightstreamer.com/docs/client_javascript_uni_api/Subscription.html
-      //    for more information on these properties. All properties are optional.
-      //
-      //  returns: dojo.store.util.QueryResults
-      //    A query results object that can be used to observe data being returned,
-      //    as well as stop the stream of data.  Note that this results object is
-      //    customized with an "observe" method and a "close" method; observe is the
-      //    main hook into the constant data stream returned by Lightstreamer, and
-      //    the close method will stop the query/stream.
-      //
-      //  example:
-      //    Query a server:
-      //  |  var results = myLSStore.query("MERGE", { dataAdapter: "QUOTE_ADAPTER", snapshotRequired: true });
-      //  |  results.observe(function(obj){
-      //  |    //  do something with obj
-      //  |  });
-      
-      if (query == "MERGE" || query == "RAW") {
-          this.kind = _ITEM_IS_KEY;
-        } else if (query == "DISTINCT") {
-          this.kind = _UPDATE_IS_KEY;
-        } else { //Constants._COMMAND
-          this.kind = _KEY_IS_KEY;
-        }
-      
-      options = options || {};
-      var results = new dojo.Deferred(),
-        snapshotReceived,
-        resultsArray = [],
-        self = this,
-        id = 0,
-        subscription = new Subscription(query, this.itemsList, this.fieldsList );
-      
-      if(!("dataAdapter" in options) && this.dataAdapter){
-        subscription.setDataAdapter(this.dataAdapter);
-      }
-      
+      this.listeners = new ArrayList();
+      this.updateId = 0;
+   
+      // configure the subscription
+      this.subscription = new Subscription(options.mode);
       for(var prop in options) {
         var setter = "set" + prop.charAt(0).toUpperCase() + prop.slice(1);
-        if(setter in subscription && dojo.isFunction(subscription[setter])){
-          subscription[setter]["call"](subscription, options[prop]);
+        if(setter in this.subscription && dojo.isFunction(this.subscription[setter])){
+          this.subscription[setter]["call"](this.subscription, options[prop]);
         }
       }
+
+      //TODO conflicts may arise if there is an "id" field in the field list 
+      if (options.kind) {
+        this.kind = options.kind;
+      } else if (options.mode == "MERGE" || options.mode == "RAW") {
+        this.kind = _ITEM_IS_KEY;
+      } else if (options.mode == "DISTINCT") {
+        this.kind = _UPDATE_IS_KEY;
+      } else { //options.mode == "COMMAND"
+        this.kind = _KEY_IS_KEY;
+      }
       
-      subscription.addListener({
+      var self = this;
+      this.subscription.addListener({
         onItemUpdate: function(updateInfo) {
-          var objId;
-          var newObject = false;
-          var oldObject = false;
-          if (self.kind == _ITEM_IS_KEY) {
-            objId = updateInfo.getItemPos() - 1;
-          } else if (self.kind == _UPDATE_IS_KEY ) {
-            objId = id++;
-          } else { //_KEY_IS_KEY
-            if (!self._commandKeys[updateInfo.getValue("key")]) {
-              self._commandKeys[updateInfo.getValue("key")] = id++;
-            }
-            objId = self._commandKeys[updateInfo.getValue("key")];
-            
-            if ( updateInfo.getValue("command") == "DELETE" ) {
-              oldObject = true;
-            }
-          }
-          
-          var obj = translate(objId, updateInfo, self.fieldsList, self._index[objId]);
-          
-          if(!self._index[objId]){
-            newObject = true;
-            self._index[objId] = obj;
-          }
-          
-          if ( objId > -1 ) {
-            subscription["onPostSnapShot"](obj, newObject, objId, oldObject);
-          } 
+          var key = self.getUpdateKey(updateInfo);     
+          var updateObj = translate(key,updateInfo,self.data.item(key));
+          self.put(updateObj);
         },
         
-        onEndOfSnapshot: function(itemName, itemPos) {
-          snapshotReceived = true;
-          results.resolve(resultsArray);
+        onSubscription: function() {
+          //as soon as we subscribe we clean all the data currently in the store
+          //we may make this cleaning optional
+          self.clear();          
+        },
+        
+        onUnsubscription: function() {
+          // we may want to move the "onSubscription code" here
+          self.clear();          
         }
       });
-
-      if( query == "MERGE" || query == "RAW" || options.RequestedSnapshot == "no" ) {
-        snapshotReceived = true;
-        results.resolve(resultsArray);
-      }
-
-      subscription.onPostSnapShot = function(){};
-
-      //  modify the deferred
-      results = dojo.store.util.QueryResults(results);
-
-      //  set up the main way of working with results
-      var observeHandler;
-      results.observe = function(listener){       
       
-        console.log("observe.");
       
-        self.listeners[self.listnsCount++] = listener;
-
-        observeHandler = dojo.connect(subscription, "onPostSnapShot", function(object, newObject, objid, oldObject){
-          listener.call(results, object, newObject ? -1 : objid, oldObject ? -1 : objid);
-        });
+      this.client.subscribe(this.subscription);
+      
+    },
+    
+    query: function(query,options) {
+      
+      // use the query engine to filter results based on the query
+      // and wrap the returned set in a QueryResult
+      var results = QueryResults(this.queryEngine(query, options)(this.data.getValueList()));
+    
+      var that = this;
+      //Substitute results observe method with a custom version.
+      results.observe = function(observeListener) {
+        
+        var listener = {
+            resultsArray: results,
+            listener: observeListener,
+            query: query,
+            option: options 
+        };
+        
+        that.listeners.add(listener);
+        
+        return {
+          cancel: function() {
+            that.listeners.remove(listener);
+          }
+        };
       };
-
-      //  set up the way to stop the stream
-
-      results.close = function(){
-        if(observeHandler){ dojo.disconnect(observeHandler); }
-        this.client.unsubcribe(subscription);
-        subscription = null;
-      };
-
-      //  start up the stream
-      this.client.subscribe(subscription);
       
       return results;
     },
+    
+    
+    updateResults: function(key) {
+      var updatedObject = this.get(key);
+
+      //TODO currently it does not take into account the start and count filters
+      //TODO currently does not resort the result set
+        // as a consequence data does not enter-exits the results set because of positioning, still it enters/exits 
+        // the results set because of the given query
+      
+      this.listeners.forEach(function(o) {
+        //Verify if this update is already in the resultArray
+        //and find its current position
+        var oldPosition = -1;
+        for(var i = 0; i < o.resultsArray.length && oldPosition == -1; i++){
+          if(this.getIdentity(o.resultsArray[i]) == key){
+            oldPosition = i;
+          }
+        }
+        
+        // run query to verify if the element still pertains/now pertains to the result set
+        // in case of a COMMAND subscription a DELETE command means the elements does not exist anymore
+        // thus we remove it from the result set
+        var matches = this.kind == _KEY_IS_KEY && updatedObject["command"] == "DELETE" || !updatedObject ? false : this.queryEngine(o.query)([updatedObject]).length;
+        if (!matches) {
+          if (oldPosition > -1) {
+            //remove from results
+            o.resultsArray.splice(oldPosition,1);
+            //notify removal
+            o.listener(updatedObject, oldPosition, -1);
+          } //else is simply not relevant in this result set 
+          
+          return;
+        } 
+        
+        //TODO find it a new position
+        //  currently we keep its position if any, or put it on position 0
+        var newPosition = oldPosition != -1 ? oldPosition : 0;
+        
+        if (oldPosition > -1) {
+          if (oldPosition != newPosition) {
+            //move to new pos
+            o.resultsArray.splice(oldPosition,1);
+            o.resultsArray.splice(newPosition,0,updatedObject);
+          }
+          
+        } else {
+          //insert in new position
+          o.resultsArray.splice(newPosition,0,updatedObject);
+        }
+        
+        // notify 
+        o.listener(updatedObject, oldPosition, newPosition);
+        
+      
+      },this);
+   
+    },
+    
+    getUpdateKey: function(updateInfo) {
+      if (this.kind == _ITEM_IS_KEY) {
+        return updateInfo.getItemPos();
+        
+      } else if (this.kind == _KEY_IS_KEY ) {
+        return updateInfo.getValue("key");
+        
+      } else { //_UPDATE_IS_KEY
+        return ++this.updateId;
+      }
+    },
+    
+    clear: function() {
+      var itr = this.data.getIterator();
+      while(!itr.atEnd()){   
+        this.remove(itr.get()["key"]); 
+      }
+    },
+    
+    put: function(obj){
+      var key = this.getIdentity(obj);
+      
+      if (this.kind == _KEY_IS_KEY && obj["command"] == "DELETE") {
+        //special put call (for COMMAND mode handling)
+        this.remove(key);
+        
+      } else {
+        //regular put
+        this.data.add(key,obj);
+        this.updateResults(key);
+      }
+      
+    },
+    
+    remove: function(key) {
+      this.data.remove(key);
+      this.updateResults(key);
+    },
+    
     get: function(id){
       //  summary:
       //    Return a (cached) object from the Lightstreamer.
       //  id: String
       //    The identity of the object to retrieve.
-      return this._index[id];
+      return this.data.item(id);
     },
+    
     getIdentity: function(object){
       //   summary:
       //    Returns an object's identity
@@ -222,6 +234,8 @@ define([
       //  returns: Number
       return object["id"];
     }
+    
+    
   });
 
   return LightstreamerStore;
