@@ -17,7 +17,8 @@
     "url":"http://github.com/Weswit/DojoLightstreamer"
  },
  "dependencies": {
-    "dojo": ">=1.7.2"
+    "dojo": ">=1.7.2",
+    "dojox": ">=1.7.2"
  },
  "main": "./LightstreamerStore.js", 
  "icon": "http://www.lightstreamer.com/img/lsdojostore_icon.png",
