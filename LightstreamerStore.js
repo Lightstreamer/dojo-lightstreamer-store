@@ -93,7 +93,6 @@ define([
     },
     
     query: function(query,options) {
-      
       // use the query engine to filter results based on the query
       // and wrap the returned set in a QueryResult
       var results = QueryResults(this.queryEngine(query, options)(this.data.getValueList()));
@@ -106,7 +105,7 @@ define([
             resultsArray: results,
             listener: observeListener,
             query: query,
-            option: options 
+            options: options 
         };
         
         that.listeners.add(listener);
@@ -126,9 +125,6 @@ define([
       var updatedObject = this.get(key);
 
       //TODO currently it does not take into account the start and count filters
-      //TODO currently does not resort the result set
-        // as a consequence data does not enter-exits the results set because of positioning, still it enters/exits 
-        // the results set because of the given query
       
       this.listeners.forEach(function(o) {
         //Verify if this update is already in the resultArray
@@ -155,26 +151,44 @@ define([
           return;
         } 
         
-        //TODO find it a new position
-        //  currently we keep its position if any, or put it on position 0
-        var newPosition = oldPosition != -1 ? oldPosition : 0;
+        //if oldPostion then just update, otherwise push it
+        if (oldPosition <= -1) {
+          //element wasn't in the array, let's push it
+          o.resultsArray.push(updatedObject);
+        }
         
-        if (oldPosition > -1) {
-          if (oldPosition != newPosition) {
-            //move to new pos
-            o.resultsArray.splice(oldPosition,1);
-            o.resultsArray.splice(newPosition,0,updatedObject);
+        var newPosition = -1;
+        //use sort to sort the array
+        
+        if (o.options && o.options.sort) {
+          
+          // from SimpleQueryEngine
+          var sortSet = o.options.sort;
+          o.resultsArray.sort(typeof sortSet == "function" ? sortSet : function(a, b){
+            for(var sort, i=0; sort = sortSet[i]; i++){
+              var aValue = a[sort.attribute];
+              var bValue = b[sort.attribute];
+              if (aValue != bValue){
+                return !!sort.descending == (aValue == null || aValue > bValue) ? -1 : 1;
+              }
+            }
+            return 0;
+          });
+          
+          //find new postion
+          for(var i = 0; i < o.resultsArray.length && newPosition == -1; i++){
+            if(this.getIdentity(o.resultsArray[i]) == key){
+              newPosition = i;
+            }
           }
           
         } else {
-          //insert in new position
-          o.resultsArray.splice(newPosition,0,updatedObject);
+          //new position is the end of the set or previous position if any
+          newPosition = oldPosition <= -1 ? o.resultsArray.length-1 : oldPosition;
         }
         
-        // notify 
         o.listener(updatedObject, oldPosition, newPosition);
         
-      
       },this);
    
     },
