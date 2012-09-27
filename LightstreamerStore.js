@@ -139,9 +139,10 @@ define([
         // run query to verify if the element still pertains/now pertains to the result set
         // in case of a COMMAND subscription a DELETE command means the elements does not exist anymore
         // thus we remove it from the result set
-        var matches = this.kind == _KEY_IS_KEY && updatedObject["command"] == "DELETE" || !updatedObject ? false : this.queryEngine(o.query)([updatedObject]).length;
+        var matches = !updatedObject || this.kind ==  _KEY_IS_KEY && updatedObject["command"] == "DELETE" ? false : this.queryEngine(o.query)([updatedObject]).length;
         if (!matches) {
           if (oldPosition > -1) {
+            updatedObject = updatedObject || {id:key};
             //remove from results
             o.resultsArray.splice(oldPosition,1);
             //notify removal
