@@ -27,8 +27,27 @@ define([
     return o;
   };
   
+  function binarySearch(array,compareEl,compareFun) {
+    var up = 0;
+    var down = array.length-1;
+    
+    var j = 0;
+    while (up < down) {
+      j = Math.floor((up + down) /2);
+      if(compareFun(compareEl,array[j]) < 0) {
+        down = j - 1;
+      } else {
+        up = j + 1;
+      }
+    }
+    
+    if (up != down || compareFun(compareEl,array[up]) < 0) {
+      return up;
+    } else {
+      return up + 1;
+    }
+  }
   
-   
   var LightstreamerStore = declare(null, {
   
 
@@ -152,20 +171,16 @@ define([
           return;
         } 
         
-        //if oldPostion then just update, otherwise push it
-        if (oldPosition <= -1) {
-          //element wasn't in the array, let's push it
-          o.resultsArray.push(updatedObject);
-        }
-        
-        var newPosition = -1;
-        //use sort to sort the array
         
         if (o.options && o.options.sort) {
+        
+          if (oldPosition >= 0) {
+            o.resultsArray.splice(oldPosition,1);
+          }
           
-          // from SimpleQueryEngine
           var sortSet = o.options.sort;
-          o.resultsArray.sort(typeof sortSet == "function" ? sortSet : function(a, b){
+          
+          var compareFunction = typeof sortSet == "function" ? sortSet : function(a, b){
             for(var sort, i=0; sort = sortSet[i]; i++){
               var aValue = a[sort.attribute];
               var bValue = b[sort.attribute];
@@ -174,18 +189,21 @@ define([
               }
             }
             return 0;
-          });
+          };
           
-          //find new postion
-          for(var i = 0; i < o.resultsArray.length && newPosition == -1; i++){
-            if(this.getIdentity(o.resultsArray[i]) == key){
-              newPosition = i;
-            }
-          }
+          newPosition = binarySearch(o.resultsArray,updatedObject,compareFunction);
+          
+          o.resultsArray.splice(newPosition , 0, updatedObject);
+          
+        } else if (oldPosition <= -1) {
+          //no sort and no prev pos, newPosition is the end of the set
+          newPosition = o.resultsArray.length;
+          //the element also need to be placed in the array
+          o.resultsArray.push(updatedObject);
           
         } else {
-          //new position is the end of the set or previous position if any
-          newPosition = oldPosition <= -1 ? o.resultsArray.length-1 : oldPosition;
+          //no sort but already in the set, newPosition is the same as the old position
+          newPosition = oldPosition;
         }
         
         o.listener(updatedObject, oldPosition, newPosition);
