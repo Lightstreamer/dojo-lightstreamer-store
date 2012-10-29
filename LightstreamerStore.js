@@ -114,8 +114,16 @@ define([
     query: function(query,options) {
       // use the query engine to filter results based on the query
       // and wrap the returned set in a QueryResult
-      var results = QueryResults(this.queryEngine(query, options)(this.data.getValueList()));
+     
+      if (options) {
+        // it does not take into account the start and count filters, so remove if set (otherwise queryEngine would handle'em)
+        delete(options.count);
+        delete(options.start);
+      }
     
+      
+      var results = QueryResults(this.queryEngine(query, options)(this.data.getValueList()));
+     
       var that = this;
       //Substitute results observe method with a custom version.
       results.observe = function(observeListener) {
@@ -142,8 +150,6 @@ define([
     
     updateResults: function(key) {
       var updatedObject = this.get(key);
-
-      //TODO currently it does not take into account the start and count filters
       
       this.listeners.forEach(function(o) {
         //Verify if this update is already in the resultArray
