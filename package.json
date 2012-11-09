@@ -23,5 +23,6 @@
  "icon": "http://www.lightstreamer.com/img/lsdojostore_icon.png",
  "bugs": "http://forums.lightstreamer.com/forumdisplay.php?19-Dojo", 
  "keywords": ["Lightstreamer","Comet","Streaming","Data Push","WebSocket"],
- "homepage": "http://www.lightstreamer.com/"
+ "homepage": "http://www.lightstreamer.com/",
+ "dojoBuild": "package.js"
 }
