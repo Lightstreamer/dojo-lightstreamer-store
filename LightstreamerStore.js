@@ -23,7 +23,7 @@ define([
     });
     
     if(!("id" in o)){ o["id"] = key; };
-    
+    if(!("item" in o)){ o["item"] = updateInfo.getItemPos(); };
     return o;
   };
   
@@ -75,7 +75,7 @@ define([
         }
       }
 
-      //TODO conflicts may arise if there is an "id" field in the field list 
+      //TODO conflicts may arise if there is an "id" or "item" field in the field list 
       if (options.kind) {
         this.kind = options.kind;
       } else if (options.mode == "MERGE" || options.mode == "RAW") {
@@ -89,7 +89,7 @@ define([
       var self = this;
       this.subscription.addListener({
         onItemUpdate: function(updateInfo) {
-          var key = self.getUpdateKey(updateInfo);     
+          var key = self.getUpdateKey(updateInfo);
           var updateObj = translate(key,updateInfo,self.data.item(key));
           self.put(updateObj);
         },
@@ -103,6 +103,13 @@ define([
         onUnsubscription: function() {
           // we may want to move the "onSubscription code" here
           self.clear();          
+        },
+        
+        onClearSnapshot: function(itemName,itemPos) {
+          //TODO we may want to place a reverse index instead of querying like this
+          QueryResults(self.queryEngine({item:itemPos})(self.data.getValueList())).forEach(function(obj) {
+            self.remove(obj["id"]);
+          });
         }
       });
       
