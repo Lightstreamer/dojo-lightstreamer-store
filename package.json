@@ -1,6 +1,6 @@
 {
  "name": "lightstreamer-store",
- "version": "0.9.1",
+ "version": "1.0",
  "description": "Lightstreamer backed implementation of dojo/store",
  "licenses": [
     {
